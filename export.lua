@@ -321,7 +321,7 @@ net:evaluate()
 net_config = {}
 net = optimize(net)
 
-print(net)
+
 -- Add input layer config.
 net_config[#net_config+1] = {
     ['id'] = #net_config,
@@ -349,13 +349,13 @@ layerfn = {
 
 mod = {}
 current = 1
-print(net)
+
 function getDescr(model, mod, current, prev)
     isUsed = 1
     for i=1,#model do
         local layer = model:get(i)
         layer_type = torch.type(layer)
-	    save = layerfn[layer_type]
+        save = layerfn[layer_type]
         if (layer_type == "nn.Concat" or layer_type == "nn.ConcatTable") then
             local layer1 = layer
             local save1= save
@@ -378,6 +378,9 @@ function getDescr(model, mod, current, prev)
             table.insert(mod,tostring("concat" .. tostring(current) .. " " ..strr))
             save1(layer1, tostring(current), strr)
             current = current + 1
+         elseif (layer_type == "nn.Sequential" ) then
+              print(current)
+              current = getDescr(layer, mod, current, current)
          elseif (layer_type == "nn.CAddTable" or layer_type == "nn.Identity") then
             --pass layer, already make it in concatTable
             i = i
@@ -386,7 +389,6 @@ function getDescr(model, mod, current, prev)
             table.insert(mod,tostring(tostring(current-1) .. " " ..  tostring(current -1)))
          else
             if isUsed==0 then
-                print(layer_type)
                 save(layer, tostring(current), tostring(current-1))
                 table.insert(mod,tostring(tostring(current) .. " " ..  tostring(current -1)))
                 current = current + 1
