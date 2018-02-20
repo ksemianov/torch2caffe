@@ -5,6 +5,7 @@ from __future__ import print_function
 import os
 os.environ['GLOG_minloglevel'] = '2'  # Hide caffe debug info.
 
+import math
 import json
 import caffe
 import numpy as np
@@ -43,17 +44,45 @@ def conv_layer(layer_config, bottom_name):
 #Create deconv layer.
 def deconv_layer(layer_config, bottom_name):
     num_output = layer_config['num_output']
-
+    kW, kH = layer_config['kW'], layer_config['kH']
+    dW, dH = layer_config['dW'], layer_config['dH']
+    pW, pH = layer_config['pW'], layer_config['pH']
+    adj = layer_config['adj']
+    if adj>0:
+	kW = kW + 1
+	kH = kH + 1
     return L.Deconvolution(name = layer_config['name'],
                          bottom=bottom_name,
                          ntop = 0, top = layer_config['name'],
-                         convolution_param=dict(kernel_w=4,
-                         num_output=num_output,
-                         kernel_h=4,
-                         stride_w=2,
-                         stride_h=2,
-                         pad_w=1,
-                         pad_h=1))
+                         convolution_param = dict(kernel_w=kW,
+						  kernel_h=kH,
+                         			  num_output=num_output,
+                         			  stride_w=dW,
+                         			  stride_h=dH,
+                         			  pad_w=pW,
+                         			  pad_h=pH))
+
+#Create upsample layer. Support only x2 upsample
+def upsample_layer(layer_config, bottom_name):
+    num_output1 = layer_config['num_output']
+    scale = layer_config['scale']
+    if scale != 2:
+	raise ValueError('Scale factor should be 2')
+    return L.Deconvolution(name = layer_config['nameInner'],
+                         bottom=bottom_name,
+                         ntop = 0, top = layer_config['name'],
+                         convolution_param = dict(kernel_w= scale * scale - scale % 2,
+                                                  kernel_h= scale * scale - scale % 2,
+                                                  num_output = num_output1,
+						  group = num_output1,
+                                                  stride_w=scale,
+                                                  stride_h=scale,
+                                                  pad_w=int(math.ceil((scale - 1) / 2.)), 
+                                                  pad_h=int(math.ceil((scale - 1) / 2.)),
+			 			  weight_filler=dict(type='bilinear'),
+			 			  bias_term=False),
+			param = dict(lr_mult=0, decay_mult= 0))
+
 
 #Create bn layer.
 def bn_layer(layer_config, bottom_name):
@@ -110,7 +139,8 @@ def pool_layer(layer_config, bottom_name):
     kW, kH = layer_config['kW'], layer_config['kH']
     dW, dH = layer_config['dW'], layer_config['dH']
     pW, pH = layer_config['pW'], layer_config['pH']
-
+    if pW !=1 or pH !=1:
+        raise ValueError('padding into pooling should be 1')
     return L.Pooling(name = layer_config['name'],
                      ntop = 0, top = layer_config['name'],
                      bottom=bottom_name,
@@ -119,8 +149,8 @@ def pool_layer(layer_config, bottom_name):
                      kernel_h=kH,
                      stride_w=dW,
                      stride_h=dH,
-                     pad_w=pW,
-                     pad_h=pH)
+                     pad_w=0,
+                     pad_h=0)
 
 
 def build_prototxt():
@@ -143,6 +173,7 @@ def build_prototxt():
         'Pooling': pool_layer,
         'Concat' : concat_layer,
         'Cadd' : cadd_layer,
+	'Upsample' :upsample_layer,
     }
 
     net = caffe.NetSpec()
@@ -162,10 +193,10 @@ def build_prototxt():
 	    print(net_config[w])
             bottom_layer_name = net_config[w]["prev"]
        	    layer_config = net_config[w]
-            layer_name = str(layer_config['id'])
+            layer_name = str(layer_config['name'])
             layer_type = layer_config['type']
 
-            print('... Add layer: %s' % layer_type)
+            print('... Add layer: %s %s' % (layer_type, layer_name))
             get_layer = layer_fn.get(layer_type)
             if not get_layer:
                 raise TypeError('%s not supported yet!' % layer_type)
@@ -202,23 +233,35 @@ def fill_params():
     Save as `cvt_net.caffemodel`.
     '''
     print('==> Filling layer params..')
-
+    
+    #matrix for computing x2 upsample
+    w = [[0.25, 0.5,  0.25, 0], [0.5,  1.,   0.5 , 0], [0.25, 0.5,  0.25, 0], [0,0,0,0]]
+    
     net = caffe.Net('cvt_net.prototxt', caffe.TEST)
     for i in range(len(net.layers)):
         layer_name = net._layer_names[i]
         layer_type = net.layers[i].type
 
-        print('... Layer %d : %s' % (i, layer_type))
-
+        print('... Layer %d : name: %s type: %s' % (i, layer_name, layer_type))
+	
         weight, bias = load_param(layer_name)
+	if layer_type == "Deconvolution" and layer_name[0:2] =="Up":
+        #if deconv with adjW, adjH, need to move weight
+	    print("in here")
+	    net.params[layer_name][0].data[0] =w
+            net.params[layer_name][0].data[1] =w
+            net.params[layer_name][0].data[2] =w
 
-        if (weight is not None) and layer_type != "Eltwise":
-            net.params[layer_name][0].data[...] = weight
-        if (bias is not None) and layer_type != "Eltwise":
-            net.params[layer_name][1].data[...] = bias
+	#if upsample, we don't reload weight
+        else:
+            if (weight is not None) and layer_type != "Eltwise":
+                print(weight.shape)
+		net.params[layer_name][0].data[...] = weight
+            if (bias is not None) and layer_type != "Eltwise":
+                net.params[layer_name][1].data[...] = bias
 
-        if layer_type == 'BatchNorm':
-            net.params[layer_name][2].data[...] = 1.  # use_global_stats=true
+            if layer_type == 'BatchNorm':
+                net.params[layer_name][2].data[...] = 1.  # use_global_stats=true
 
     net.save('cvt_net.caffemodel')
     print('Saved!')

@@ -11,9 +11,43 @@ npy4th = require 'npy4th';
 
 torch.setdefaulttensortype('torch.FloatTensor')
 
+if not nn.SpatialCircularPadding then
+  torch.class('nn.SpatialCircularPadding', 'nn.SpatialZeroPadding')
+end
 
 PARAM_DIR = './param/'    -- Directory for saving layer param.
 CONFIG_DIR = './config/'  -- Directory for saving net config.
+
+function clearDirectory()
+    y = "yes"
+    paths.rmall(PARAM_DIR, y)
+    paths.rmall(CONFIG_DIR, y)
+    paths.mkdir(PARAM_DIR)
+    paths.mkdir(CONFIG_DIR)
+end
+
+clearDirectory()
+
+local function remove_circular_padding(net)
+  if net.modules == nil then
+    return
+  end
+  local i = 1
+  while (i <= #net.modules) do
+    local m = net.modules[i]
+    if torch.typename(m) == "nn.SpatialCircularPadding" or torch.typename(m) == "nn.SpatialSymmetricPadding" then
+      local conv = net.modules[i + 1]
+      assert(torch.typename(conv) == "nn.SpatialConvolution", "Next module after SpatialCircularPadding must be SpatialConvolution")
+      conv.padW = m.pad_l
+      conv.padH = m.pad_t
+      net:remove(i)
+      i = i - 1
+    else
+      remove_circular_padding(m)
+    end
+    i = i + 1
+  end
+end
 
 
 local absorb_bn_conv = function (w, b, mean, invstd, affine, gamma, beta)
@@ -186,7 +220,8 @@ function deconv_layer(layer, current, prev)
         ['dH'] = dH,
         ['pW'] = pW,
         ['pH'] = pH,
-	    ['prev'] = prev,
+	['adj'] = layer.adjW,
+	['prev'] = prev,
     }
 end
 
@@ -260,7 +295,7 @@ function concat_layer(layer, current, prev)
         ['id'] = #net_config,
         ['type'] = 'Concat',
         ['name'] = layer_name,
-	    ['prev'] = prev,
+	['prev'] = prev,
     }
 end
 
@@ -286,7 +321,7 @@ function relu_layer(layer, current, prev)
         ['id'] = #net_config,
         ['type'] = 'ReLU',
         ['name'] = "relu" .. current,
-	    ['prev'] = prev,
+	['prev'] = prev,
     }
 end
 
@@ -299,7 +334,20 @@ function elu_layer(layer, current, prev)
         ['type'] = 'ELU',
         ['name'] = "elu" .. current,
         ['prev'] = prev,
-	    ['alpha'] = layer.alpha,
+        ['alpha'] = layer.alpha,
+    }
+end
+
+function upsample_layer(layer, current, prev)
+    curr = #net_config
+    net_config[#net_config+1] = {
+        ['id'] = #net_config,
+        ['type'] = 'Upsample',
+	['name'] = current, 
+        ['nameInner'] = tostring('Up') ..current,
+        ['prev'] = prev,
+        ['scale'] = layer.scale_factor,
+	['num_output'] = layer.output:size()[2],
     }
 end
 
@@ -318,9 +366,11 @@ paths.mkdir(CONFIG_DIR)
 
 net = torch.load(net_path)
 net:evaluate()
+net:forward(torch.Tensor(1,3,512,512))
 net_config = {}
+remove_circular_padding(net)
 net = optimize(net)
-
+print(net)
 
 -- Add input layer config.
 net_config[#net_config+1] = {
@@ -341,6 +391,8 @@ layerfn = {
     ['nn.ELU'] = elu_layer,
     ['nn.SpatialFullConvolution'] = deconv_layer,
     ['nn.ConcatTable'] = cadd_layer,
+    ['nn.SpatialUpSamplingNearest'] = upsample_layer,
+    ['nn.SpatialUpSamplingBilinear'] = upsample_layer,
 }
 
 
@@ -350,22 +402,20 @@ layerfn = {
 mod = {}
 current = 1
 
-function getDescr(model, mod, current, prev)
-    isUsed = 1
-    for i=1,#model do
-        local layer = model:get(i)
-        layer_type = torch.type(layer)
-        save = layerfn[layer_type]
-        if (layer_type == "nn.Concat" or layer_type == "nn.ConcatTable") then
+function concatDescr(layer,mod, current, prev)
+	    print( torch.type(layer))
             local layer1 = layer
-            local save1= save
-            inp = current-1
-            strr = ""
+            local layer_type = torch.type(layer)
+            local save = layerfn[layer_type]    
+	    local save1= save
+            local inp = current-1
+            local strr = ""
             local _prev = current
             for i=1,#layer.modules do
                 if torch.type(layer.modules[i]) == "nn.Identity" then
-		    strr = strr .. tostring(inp).. ","
+                    strr = strr .. tostring(inp).. ","
                 else
+                    --print(layer.modules[i])
                     current = getDescr(layer.modules[i], mod, current, inp)
                     if _prev == current then
                         strr = strr .. tostring(inp).. ","
@@ -378,9 +428,24 @@ function getDescr(model, mod, current, prev)
             table.insert(mod,tostring("concat" .. tostring(current) .. " " ..strr))
             save1(layer1, tostring(current), strr)
             current = current + 1
+	return mod, current, prev
+end
+
+
+function getDescr(model, mod, current, prev)
+    isUsed = 1
+    if torch.type(model) == "nn.Concat" or torch.type(model) == "nn.ConcatTable" then
+	mod, current, prev = concatDescr(model,mod, current, prev)
+    else
+    for i=1,#model do
+        local layer = model:get(i)
+        layer_type = torch.type(layer)
+        save = layerfn[layer_type]
+        if (layer_type == "nn.Concat" or layer_type == "nn.ConcatTable") then
+            mod, current, prev = concatDescr(layer, mod, current, prev)
          elseif (layer_type == "nn.Sequential" ) then
-              print(current)
-              current = getDescr(layer, mod, current, current)
+              --print(current)
+              current = getDescr(layer, mod, current, current-1)
          elseif (layer_type == "nn.CAddTable" or layer_type == "nn.Identity") then
             --pass layer, already make it in concatTable
             i = i
@@ -403,6 +468,7 @@ function getDescr(model, mod, current, prev)
             	current = current + 1
 	    end
         end
+    end
     end
     return current
 end
