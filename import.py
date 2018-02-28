@@ -26,27 +26,24 @@ def input_layer(layer_config):
 #Create conv layer.
 def conv_layer(layer_config, bottom_name):
     num_output = layer_config['num_output']
-    kW, kH = layer_config['kW'], layer_config['kH']
-    dW, dH = layer_config['dW'], layer_config['dH']
-    pW, pH = layer_config['pW'], layer_config['pH']
+    kW = layer_config['kW']
+    dW = layer_config['dW']
+    pW = layer_config['pW']
     return L.Convolution(name = layer_config['name'],
                          ntop = 0, top = layer_config['name'], #use ntop=0, for set top manually
                          num_output=num_output,
                          bottom=bottom_name,
-                         kernel_w=kW,
-                         kernel_h=kH,
-                         stride_w=dW,
-                         stride_h=dH,
-                         pad_w=pW,
-                         pad_h=pH)
+                         kernel_size=kW,
+                         stride=dW,
+                         pad=pW)
 
 
 #Create deconv layer.
 def deconv_layer(layer_config, bottom_name):
     num_output = layer_config['num_output']
-    kW, kH = layer_config['kW'], layer_config['kH']
-    dW, dH = layer_config['dW'], layer_config['dH']
-    pW, pH = layer_config['pW'], layer_config['pH']
+    kW= layer_config['kW']
+    dW= layer_config['dW']
+    pW= layer_config['pW']
     adj = layer_config['adj']
     if adj>0:
 	kW = kW + 1
@@ -54,13 +51,10 @@ def deconv_layer(layer_config, bottom_name):
     return L.Deconvolution(name = layer_config['name'],
                          bottom=bottom_name,
                          ntop = 0, top = layer_config['name'],
-                         convolution_param = dict(kernel_w=kW,
-						  kernel_h=kH,
+                         convolution_param = dict(kernel_size=kW,
                          			  num_output=num_output,
-                         			  stride_w=dW,
-                         			  stride_h=dH,
-                         			  pad_w=pW,
-                         			  pad_h=pH))
+                         			  stride=dW,
+                         			  pad=pW))
 
 #Create upsample layer. Support only x2 upsample
 def upsample_layer(layer_config, bottom_name):
@@ -71,14 +65,11 @@ def upsample_layer(layer_config, bottom_name):
     return L.Deconvolution(name = layer_config['nameInner'],
                          bottom=bottom_name,
                          ntop = 0, top = layer_config['name'],
-                         convolution_param = dict(kernel_w= scale * scale - scale % 2,
-                                                  kernel_h= scale * scale - scale % 2,
+                         convolution_param = dict(kernel_size= scale * scale - scale % 2,
                                                   num_output = num_output1,
 						  group = num_output1,
-                                                  stride_w=scale,
-                                                  stride_h=scale,
-                                                  pad_w=int(math.ceil((scale - 1) / 2.)), 
-                                                  pad_h=int(math.ceil((scale - 1) / 2.)),
+                                                  stride=scale,
+                                                  pad=int(math.ceil((scale - 1) / 2.)), 
 			 			  weight_filler=dict(type='bilinear'),
 			 			  bias_term=False),
 			param = dict(lr_mult=0, decay_mult= 0))
@@ -111,8 +102,7 @@ def cadd_layer(layer_config, bottom_name):
     bottom.pop()
     return L.Eltwise(name = layer_config['name'],
                      ntop = 0, top = layer_config['name'],
-                     bottom=bottom,
-                     operation=P.Eltwise.SUM)
+                     bottom=bottom)
 
 
 #Create relu layer.
@@ -136,21 +126,18 @@ def elu_layer(layer_config, bottom_name):
 #Create pool(max, average) layer.
 def pool_layer(layer_config, bottom_name):
     pool_type = layer_config['pool_type']
-    kW, kH = layer_config['kW'], layer_config['kH']
-    dW, dH = layer_config['dW'], layer_config['dH']
-    pW, pH = layer_config['pW'], layer_config['pH']
-    if pW !=1 or pH !=1:
+    kW = layer_config['kW']
+    dW = layer_config['dW']
+    pW = layer_config['pW']
+    if pW !=1:
         raise ValueError('padding into pooling should be 1')
     return L.Pooling(name = layer_config['name'],
                      ntop = 0, top = layer_config['name'],
                      bottom=bottom_name,
                      pool=pool_type,
-                     kernel_w=kW,
-                     kernel_h=kH,
-                     stride_w=dW,
-                     stride_h=dH,
-                     pad_w=0,
-                     pad_h=0)
+                     kernel_size=kW,
+                     stride=dW,
+                     pad=0)
 
 
 def build_prototxt():

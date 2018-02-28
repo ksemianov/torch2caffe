@@ -178,9 +178,9 @@ function conv_layer(layer, current, prev)
     save_param(layer_name, layer.weight, layer.bias)
 
     local nOutput = layer.nOutputPlane
-    local kW,kH = layer.kW,layer.kH
-    local dW,dH = layer.dW,layer.dH
-    local pW,pH = layer.padW,layer.padH
+    local kW = layer.kW
+    local dW = layer.dW
+    local pW = layer.padW
 
     net_config[#net_config+1] = {
         ['id'] = #net_config,
@@ -188,11 +188,8 @@ function conv_layer(layer, current, prev)
         ['name'] = layer_name,
         ['num_output'] = nOutput,
         ['kW'] = kW,
-        ['kH'] = kH,
         ['dW'] = dW,
-        ['dH'] = dH,
         ['pW'] = pW,
-        ['pH'] = pH,
         ['prev'] = prev,
     }
 end
@@ -205,9 +202,9 @@ function deconv_layer(layer, current, prev)
     save_param(layer_name, layer.weight, layer.bias)
 
     local nOutput = layer.nOutputPlane
-    local kW,kH = layer.kW,layer.kH
-    local dW,dH = layer.dW,layer.dH
-    local pW,pH = layer.padW,layer.padH
+    local kW = layer.kW
+    local dW = layer.dW
+    local pW = layer.padW
 
     net_config[#net_config+1] = {
         ['id'] = #net_config,
@@ -215,11 +212,8 @@ function deconv_layer(layer, current, prev)
         ['name'] = layer_name,
         ['num_output'] = nOutput,
         ['kW'] = kW,
-        ['kH'] = kH,
         ['dW'] = dW,
-        ['dH'] = dH,
         ['pW'] = pW,
-        ['pH'] = pH,
 	['adj'] = layer.adjW,
 	['prev'] = prev,
     }
@@ -233,9 +227,9 @@ function pooling_layer(layer, current, prev)
     local layer_name = current
 
     local pool_type = torch.type(layer)=='nn.SpatialMaxPooling' and 0 or 1
-    local kW,kH = layer.kW,layer.kH
-    local dW,dH = layer.dW,layer.dH
-    local pW,pH = layer.padW,layer.padH
+    local kW = layer.kW
+    local dW = layer.dW
+    local pW = layer.padW
 
     net_config[#net_config+1] = {
         ['id'] = #net_config,
@@ -243,11 +237,8 @@ function pooling_layer(layer, current, prev)
         ['name'] = layer_name,
         ['pool_type'] = pool_type,
         ['kW'] = kW,
-        ['kH'] = kH,
         ['dW'] = dW,
-        ['dH'] = dH,
         ['pW'] = pW,
-        ['pH'] = pH,
         ['prev'] = prev,
     }
 end
