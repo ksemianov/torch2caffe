@@ -3,6 +3,7 @@
 ------------------------------------------------------------------
 
 require 'nn'
+--require "cudnn"
 require 'xlua'
 require 'json'
 require 'paths'
@@ -196,7 +197,7 @@ end
 
 ---------------------------------------------------------------
 -- Save deconv layer.
---
+--	
 function deconv_layer(layer, current, prev)
     local layer_name = current
     save_param(layer_name, layer.weight, layer.bias)
@@ -316,6 +317,17 @@ function relu_layer(layer, current, prev)
     }
 end
 
+function prelu_layer(layer, current, prev)
+    local layer_name = current
+    save_param(layer_name, layer.weight, layer.bias)
+    net_config[#net_config+1] = {
+        ['id'] = #net_config,
+        ['type'] = 'PReLU',
+        ['name'] = "prelu" .. current,
+        ['prev'] = prev,
+    }
+end
+
 ---------------------------------------------------------------
 -- Save elu layer.
 --
@@ -342,6 +354,28 @@ function upsample_layer(layer, current, prev)
     }
 end
 
+function upsample1_layer(layer, current, prev)
+    curr = #net_config
+    net_config[#net_config+1] = {
+        ['id'] = #net_config,
+        ['type'] = 'Upsample1',
+        ['name'] = current .. "inner",
+        ['nameInner'] = tostring('Uo') ..current,
+        ['prev'] = prev,
+        ['scale'] = layer.scale_factor,
+        ['num_output'] = layer.output:size()[2],
+    }
+    layer_name1 =  current
+    save_param(layer_name1, torch.Tensor(1,layer.output:size()[2]):fill(4))
+    net_config[#net_config+1] = {
+        ['id'] = #net_config,
+        ['type'] = 'Scale',
+        ['name'] = layer_name1,
+       ['prev'] = current .. "inner",
+    }
+
+end
+
 if #arg ~= 5 then
     print('Usage: th export.lua [path_to_torch_model] [input_shape]')
     print('e.g. th export.lua ./net.t7 {1,1,28,28}')
@@ -357,6 +391,8 @@ paths.mkdir(CONFIG_DIR)
 
 net = torch.load(net_path)
 net:evaluate()
+--net = cudnn.convert(net, nn)
+--net = net:float()
 net:forward(torch.Tensor(1,3,512,512))
 net_config = {}
 remove_circular_padding(net)
@@ -379,10 +415,11 @@ layerfn = {
     ['nn.SpatialAveragePooling'] = pooling_layer,
     ['nn.Concat'] = concat_layer,
     ['nn.ReLU'] = relu_layer,
+    ['nn.PReLU'] = prelu_layer,
     ['nn.ELU'] = elu_layer,
     ['nn.SpatialFullConvolution'] = deconv_layer,
     ['nn.ConcatTable'] = cadd_layer,
-    ['nn.SpatialUpSamplingNearest'] = upsample_layer,
+    ['nn.SpatialUpSamplingNearest'] = upsample1_layer,
     ['nn.SpatialUpSamplingBilinear'] = upsample_layer,
 }
 
