@@ -74,6 +74,22 @@ def upsample_layer(layer_config, bottom_name):
 			 			  bias_term=False),
 			param = dict(lr_mult=0, decay_mult= 0))
 
+def upsample1_layer(layer_config, bottom_name):
+    num_output1 = layer_config['num_output']
+    scale = layer_config['scale']
+    if scale != 2:
+        raise ValueError('Scale factor should be 2')
+    return L.Deconvolution(name = layer_config['nameInner'],
+                         bottom=bottom_name,
+                         ntop = 0, top = layer_config['name'],
+                         convolution_param = dict(kernel_size= 2,
+                                                  num_output = num_output1,
+                                                  group = num_output1,
+                                                  stride=scale,
+                                                  pad=0,
+                                                  weight_filler=dict(type='bilinear'),
+                                                  bias_term=False),
+                        param = dict(lr_mult=0, decay_mult= 0))
 
 #Create bn layer.
 def bn_layer(layer_config, bottom_name):
@@ -81,10 +97,10 @@ def bn_layer(layer_config, bottom_name):
 		       bottom=bottom_name,
                        use_global_stats=True)
 
-def scale_layer(layer_config, bottom_name):
+def scale_layer(layer_config, bottom_name, _bias=True):
     return L.Scale(ntop = 0, top = layer_config['name'],
 		   bottom=bottom_name,
-                   bias_term=True)
+                   bias_term=_bias)
 
 #Create concat layer.
 def concat_layer(layer_config, bottom_name):
@@ -123,6 +139,13 @@ def elu_layer(layer_config, bottom_name):
                  in_place=True)
 
 
+def prelu_layer(layer_config, bottom_name):
+    '''For ReLU layer, top=bottom(caffe feature)'''
+    return L.ReLU(name = layer_config['name'],
+                  bottom=bottom_name,
+                  top=bottom_name,
+                  in_place=True)
+
 #Create pool(max, average) layer.
 def pool_layer(layer_config, bottom_name):
     pool_type = layer_config['pool_type']
@@ -157,10 +180,12 @@ def build_prototxt():
         'Scale': scale_layer,
         'ReLU': relu_layer,
         'ELU': elu_layer,
+	'PReLU': prelu_layer,
         'Pooling': pool_layer,
         'Concat' : concat_layer,
         'Cadd' : cadd_layer,
 	'Upsample' :upsample_layer,
+	'Upsample1' :upsample1_layer,
     }
 
     net = caffe.NetSpec()
@@ -223,7 +248,8 @@ def fill_params():
     
     #matrix for computing x2 upsample
     w = [[0.25, 0.5,  0.25, 0], [0.5,  1.,   0.5 , 0], [0.25, 0.5,  0.25, 0], [0,0,0,0]]
-    
+    w1 = [[1, 1], [1, 1]]
+
     net = caffe.Net('cvt_net.prototxt', caffe.TEST)
     for i in range(len(net.layers)):
         layer_name = net._layer_names[i]
@@ -234,16 +260,30 @@ def fill_params():
         weight, bias = load_param(layer_name)
 	if layer_type == "Deconvolution" and layer_name[0:2] =="Up":
         #if deconv with adjW, adjH, need to move weight
-	    print("in here")
-	    net.params[layer_name][0].data[0] =w
-            net.params[layer_name][0].data[1] =w
-            net.params[layer_name][0].data[2] =w
+	    #print(net.params[layer_name][0].data.shape)
+	    for j in net.params[layer_name][0].data:
+	    	print("in")
+		j =w
+            #net.params[layer_name][0].data[1] =w
+            #net.params[layer_name][0].data[2] =w
 
 	#if upsample, we don't reload weight
-        else:
+        elif layer_type == "Deconvolution" and layer_name[0:2] =="Uo":
+        #if deconv with adjW, adjH, need to move weight
+            #print(net.params[layer_name][0].data.shape)
+            for j in net.params[layer_name][0].data:
+                print("in1")
+                j =w1
+		
+	else:
+	    #if layer_name !="0":
+		#print(net.params[layer_name][0].data[...])
             if (weight is not None) and layer_type != "Eltwise":
-                print(weight.shape)
+                #print(weight.shape)
+		print(layer_type)
+		print(len(net.params[layer_name][0].data[...]))
 		net.params[layer_name][0].data[...] = weight
+		#print(weight)
             if (bias is not None) and layer_type != "Eltwise":
                 net.params[layer_name][1].data[...] = bias
 
@@ -260,6 +300,3 @@ if __name__ == '__main__':
 
     # Fill network with saved params.
     fill_params()
-
-
-
