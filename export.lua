@@ -328,6 +328,16 @@ function prelu_layer(layer, current, prev)
     }
 end
 
+function tanh_layer(layer, current, prev)
+    local layer_name = current
+    net_config[#net_config+1] = {
+        ['id'] = #net_config,
+        ['type'] = 'Tanh',
+        ['name'] = "tanh" .. current,
+        ['prev'] = prev,
+    }
+end
+
 ---------------------------------------------------------------
 -- Save elu layer.
 --
@@ -340,6 +350,7 @@ function elu_layer(layer, current, prev)
         ['alpha'] = layer.alpha,
     }
 end
+
 
 function upsample_layer(layer, current, prev)
     curr = #net_config
@@ -376,6 +387,19 @@ function upsample1_layer(layer, current, prev)
 
 end
 
+---------------------------------------------------------------
+-- Save spatialsoftmax layer.
+--
+function spatialsoftmax_layer(layer, current, prev)
+    net_config[#net_config+1] = {
+        ['id'] = #net_config,
+        ['type'] = 'Softmax',
+        ['name'] = current,
+        ['prev'] = prev,
+    }
+end
+
+
 if #arg ~= 5 then
     print('Usage: th export.lua [path_to_torch_model] [input_shape]')
     print('e.g. th export.lua ./net.t7 {1,1,28,28}')
@@ -390,14 +414,17 @@ paths.mkdir(PARAM_DIR)
 paths.mkdir(CONFIG_DIR)
 
 net = torch.load(net_path)
+net = net:float()
+print(net)
+--net:remove(8)
 net:evaluate()
 --net = cudnn.convert(net, nn)
 --net = net:float()
-net:forward(torch.Tensor(1,3,512,512))
+
 net_config = {}
 remove_circular_padding(net)
 net = optimize(net)
-print(net)
+net:forward(torch.Tensor(1,3,512,512))
 
 -- Add input layer config.
 net_config[#net_config+1] = {
@@ -417,6 +444,8 @@ layerfn = {
     ['nn.ReLU'] = relu_layer,
     ['nn.PReLU'] = prelu_layer,
     ['nn.ELU'] = elu_layer,
+    ['nn.Tanh'] = tanh_layer,
+    ['nn.SpatialSoftMax'] = spatialsoftmax_layer,
     ['nn.SpatialFullConvolution'] = deconv_layer,
     ['nn.ConcatTable'] = cadd_layer,
     ['nn.SpatialUpSamplingNearest'] = upsample1_layer,

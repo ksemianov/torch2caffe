@@ -46,15 +46,22 @@ def deconv_layer(layer_config, bottom_name):
     pW= layer_config['pW']
     adj = layer_config['adj']
     if adj>0:
-	kW = kW + 1
-	kH = kH + 1
+        kW = kW + 1
     return L.Deconvolution(name = layer_config['name'],
                          bottom=bottom_name,
                          ntop = 0, top = layer_config['name'],
                          convolution_param = dict(kernel_size=kW,
-                         			  num_output=num_output,
-                         			  stride=dW,
-                         			  pad=pW))
+                                                  num_output=num_output,
+                                                  stride=dW,
+                                                  pad=pW))
+
+def interp_layer(layer_config, bottom_name):
+
+    return L.Interp(name = layer_config['name'],
+                  bottom=bottom_name,
+                  ntop = 0, top=layer_config['name'],
+                  interp_param = dict(height=layer_config['size_output'],
+                                      width=layer_config['size_output']))
 
 #Create upsample layer. Support only x2 upsample
 def upsample_layer(layer_config, bottom_name):
@@ -138,6 +145,13 @@ def elu_layer(layer_config, bottom_name):
                  alpha= layer_config['alpha'],
                  in_place=True)
 
+def tanh_layer(layer_config, bottom_name):
+    '''For ELU layer, top=bottom(caffe feature)'''
+    return L.TanH(name = layer_config['name'],
+                 bottom=bottom_name,
+                 top=bottom_name,
+                 in_place=True)
+
 
 def prelu_layer(layer_config, bottom_name):
     '''For ReLU layer, top=bottom(caffe feature)'''
@@ -162,6 +176,13 @@ def pool_layer(layer_config, bottom_name):
                      stride=dW,
                      pad=0)
 
+#Create softmax layer.
+def softmax_layer(layer_config, bottom_name):
+    '''For Softmax layer, top=bottom(caffe feature)'''
+    return L.Softmax(name = layer_config['name'],
+                  bottom=bottom_name,
+                  ntop=0, top=layer_config['name'])
+
 
 def build_prototxt():
     '''Build a new prototxt from config file.
@@ -182,10 +203,13 @@ def build_prototxt():
         'ELU': elu_layer,
 	'PReLU': prelu_layer,
         'Pooling': pool_layer,
+        'Softmax': softmax_layer,
         'Concat' : concat_layer,
         'Cadd' : cadd_layer,
 	'Upsample' :upsample_layer,
+	'InterpLayer' :interp_layer,
 	'Upsample1' :upsample1_layer,
+	'Tanh' : tanh_layer,
     }
 
     net = caffe.NetSpec()
@@ -256,34 +280,32 @@ def fill_params():
         layer_type = net.layers[i].type
 
         print('... Layer %d : name: %s type: %s' % (i, layer_name, layer_type))
-	
-        weight, bias = load_param(layer_name)
-	if layer_type == "Deconvolution" and layer_name[0:2] =="Up":
-        #if deconv with adjW, adjH, need to move weight
-	    #print(net.params[layer_name][0].data.shape)
-	    for j in net.params[layer_name][0].data:
-	    	print("in")
-		j =w
-            #net.params[layer_name][0].data[1] =w
-            #net.params[layer_name][0].data[2] =w
 
-	#if upsample, we don't reload weight
-        elif layer_type == "Deconvolution" and layer_name[0:2] =="Uo":
+        weight, bias = load_param(layer_name)
+        if layer_type == "Deconvolution" and layer_name[0:2] =="Up":
         #if deconv with adjW, adjH, need to move weight
-            #print(net.params[layer_name][0].data.shape)
+            for j in net.params[layer_name][0].data:
+                print("in")
+                j =w
+
+
+        #if upsample, we don't reload weight
+        elif layer_type == "Deconvolution" and layer_name[0:2] =="Uo":
             for j in net.params[layer_name][0].data:
                 print("in1")
                 j =w1
-		
-	else:
-	    #if layer_name !="0":
-		#print(net.params[layer_name][0].data[...])
+
+        else:
+
             if (weight is not None) and layer_type != "Eltwise":
-                #print(weight.shape)
-		print(layer_type)
-		print(len(net.params[layer_name][0].data[...]))
-		net.params[layer_name][0].data[...] = weight
-		#print(weight)
+                if layer_type == "Deconvolution" and weight.shape[3]+1 ==net.params[layer_name][0].data[...].shape[3]:
+                        weight = np.lib.pad(weight, ((0,0),(0,0),(0,1),(0,1)), 'constant', constant_values=(0))
+                print(weight.shape)
+                print(net.params[layer_name][0].data[...].shape)
+                print(layer_type)
+                print(len(net.params[layer_name][0].data[...]))
+                net.params[layer_name][0].data[...] = weight
+                #print(weight)
             if (bias is not None) and layer_type != "Eltwise":
                 net.params[layer_name][1].data[...] = bias
 
@@ -292,6 +314,8 @@ def fill_params():
 
     net.save('cvt_net.caffemodel')
     print('Saved!')
+
+
 
 
 if __name__ == '__main__':
