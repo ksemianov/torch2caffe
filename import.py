@@ -213,15 +213,16 @@ def build_prototxt():
         'Scale': scale_layer,
         'ReLU': relu_layer,
         'ELU': elu_layer,
-    'PReLU': prelu_layer,
+        'PReLU': prelu_layer,
         'Pooling': pool_layer,
         'Softmax': softmax_layer,
         'Concat' : concat_layer,
         'Cadd' : cadd_layer,
-    'Upsample' :upsample_layer,
-    'InterpLayer' :interp_layer,
-    'Upsample1' :upsample1_layer,
-    'Tanh' : tanh_layer,
+        'Join' : join_layer,
+        'Upsample' :upsample_layer,
+        'InterpLayer' :interp_layer,
+        'Upsample1' :upsample1_layer,
+        'Tanh' : tanh_layer,
     }
 
     net = caffe.NetSpec()
