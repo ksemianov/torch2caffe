@@ -29,13 +29,17 @@ def conv_layer(layer_config, bottom_name):
     kW = layer_config['kW']
     dW = layer_config['dW']
     pW = layer_config['pW']
+    groups = layer_config['groups'] or 1
+    dilation = layer_config['dilation'] or 1
     return L.Convolution(name = layer_config['name'],
                          ntop = 0, top = layer_config['name'], #use ntop=0, for set top manually
                          num_output=num_output,
                          bottom=bottom_name,
                          kernel_size=kW,
                          stride=dW,
-                         pad=pW)
+                         pad=pW,
+                         group=groups,
+                         dilation=dilation)
 
 
 #Create deconv layer.

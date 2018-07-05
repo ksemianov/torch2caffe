@@ -3,7 +3,8 @@
 ------------------------------------------------------------------
 
 require 'nn'
---require "cudnn"
+require 'cudnn'
+require 'cunn'
 require 'xlua'
 require 'json'
 require 'paths'
@@ -182,6 +183,8 @@ function conv_layer(layer, current, prev)
     local kW = layer.kW
     local dW = layer.dW
     local pW = layer.padW
+    local groups = layer.groups or 1
+    local dilation = layer.dilationH or 1
 
     net_config[#net_config+1] = {
         ['id'] = #net_config,
@@ -192,6 +195,8 @@ function conv_layer(layer, current, prev)
         ['dW'] = dW,
         ['pW'] = pW,
         ['prev'] = prev,
+        ['groups'] = groups,
+        ['dilation'] = dilation,
     }
 end
 
@@ -423,8 +428,9 @@ net:evaluate()
 
 net_config = {}
 remove_circular_padding(net)
-net = optimize(net)
-net:forward(torch.Tensor(1,3,512,512))
+net = optimize(net):cuda()
+net:forward(torch.Tensor(1,3,512,512):cuda())
+net = net:float()
 
 -- Add input layer config.
 net_config[#net_config+1] = {
@@ -437,6 +443,9 @@ net_config[#net_config+1] = {
 -- Map layer type to it's saving function.
 layerfn = {
     ['nn.SpatialConvolution'] = conv_layer,
+    ['cudnn.SpatialConvolution'] = conv_layer,
+    ['nn.SpatialDilatedConvolution'] = conv_layer,
+    ['cudnn.SpatialDilatedConvolution'] = conv_layer,
     ['nn.SpatialBatchNormalization'] = bn_layer,
     ['nn.SpatialMaxPooling'] = pooling_layer,
     ['nn.SpatialAveragePooling'] = pooling_layer,
