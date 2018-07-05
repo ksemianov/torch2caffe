@@ -319,6 +319,7 @@ function relu_layer(layer, current, prev)
         ['type'] = 'ReLU',
         ['name'] = "relu" .. current,
 	      ['prev'] = prev,
+        ['inplace'] = layer.inplace,
     }
 end
 
@@ -330,6 +331,7 @@ function prelu_layer(layer, current, prev)
         ['type'] = 'PReLU',
         ['name'] = "prelu" .. current,
         ['prev'] = prev,
+        ['inplace'] = layer.inplace,
     }
 end
 
@@ -340,6 +342,7 @@ function tanh_layer(layer, current, prev)
         ['type'] = 'Tanh',
         ['name'] = "tanh" .. current,
         ['prev'] = prev,
+        ['inplace'] = layer.inplace,
     }
 end
 
@@ -353,6 +356,7 @@ function elu_layer(layer, current, prev)
         ['name'] = "elu" .. current,
         ['prev'] = prev,
         ['alpha'] = layer.alpha,
+        ['inplace'] = layer.inplace,
     }
 end
 
