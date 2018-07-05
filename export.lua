@@ -536,6 +536,9 @@ function getDescr(model, mod, current, prev)
         save(layer, tostring(current-1), tostring(current-1))
         table.insert(mod,tostring(tostring(current-1) .. " " ..  tostring(current -1)))
       else
+        if save == nil then
+          error("Unknown layer: " .. layer.__typename)
+        end
         if isUsed==0 then
             save(layer, tostring(current), tostring(current-1))
             table.insert(mod,tostring(tostring(current) .. " " ..  tostring(current -1)))
@@ -552,6 +555,9 @@ function getDescr(model, mod, current, prev)
     local layer = model
     layer_type = torch.type(layer)
     save = layerfn[layer_type]
+    if save == nil then
+      error("Unknown layer: " .. layer)
+    end
     if isUsed==0 then
         save(layer, tostring(current), tostring(current-1))
         table.insert(mod,tostring(tostring(current) .. " " ..  tostring(current -1)))
