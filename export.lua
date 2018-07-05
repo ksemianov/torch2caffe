@@ -429,7 +429,7 @@ net:evaluate()
 net_config = {}
 remove_circular_padding(net)
 net = optimize(net):cuda()
-net:forward(torch.Tensor(1,3,512,512):cuda())
+net:forward(torch.Tensor(table.unpack(input_shape)):cuda())
 net = net:float()
 
 -- Add input layer config.
