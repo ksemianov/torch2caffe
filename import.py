@@ -68,18 +68,18 @@ def upsample_layer(layer_config, bottom_name):
     num_output1 = layer_config['num_output']
     scale = layer_config['scale']
     if scale != 2:
-	raise ValueError('Scale factor should be 2')
+        raise ValueError('Scale factor should be 2')
     return L.Deconvolution(name = layer_config['nameInner'],
                          bottom=bottom_name,
                          ntop = 0, top = layer_config['name'],
                          convolution_param = dict(kernel_size= scale * scale - scale % 2,
                                                   num_output = num_output1,
-						  group = num_output1,
+                          group = num_output1,
                                                   stride=scale,
                                                   pad=int(math.ceil((scale - 1) / 2.)), 
-			 			  weight_filler=dict(type='bilinear'),
-			 			  bias_term=False),
-			param = dict(lr_mult=0, decay_mult= 0))
+                          weight_filler=dict(type='bilinear'),
+                          bias_term=False),
+            param = dict(lr_mult=0, decay_mult= 0))
 
 def upsample1_layer(layer_config, bottom_name):
     num_output1 = layer_config['num_output']
@@ -101,12 +101,12 @@ def upsample1_layer(layer_config, bottom_name):
 #Create bn layer.
 def bn_layer(layer_config, bottom_name):
     return L.BatchNorm(ntop = 0, top = layer_config['name'],
-		       bottom=bottom_name,
+               bottom=bottom_name,
                        use_global_stats=True)
 
 def scale_layer(layer_config, bottom_name, _bias=True):
     return L.Scale(ntop = 0, top = layer_config['name'],
-		   bottom=bottom_name,
+           bottom=bottom_name,
                    bias_term=_bias)
 
 #Create concat layer.
@@ -201,15 +201,15 @@ def build_prototxt():
         'Scale': scale_layer,
         'ReLU': relu_layer,
         'ELU': elu_layer,
-	'PReLU': prelu_layer,
+    'PReLU': prelu_layer,
         'Pooling': pool_layer,
         'Softmax': softmax_layer,
         'Concat' : concat_layer,
         'Cadd' : cadd_layer,
-	'Upsample' :upsample_layer,
-	'InterpLayer' :interp_layer,
-	'Upsample1' :upsample1_layer,
-	'Tanh' : tanh_layer,
+    'Upsample' :upsample_layer,
+    'InterpLayer' :interp_layer,
+    'Upsample1' :upsample1_layer,
+    'Tanh' : tanh_layer,
     }
 
     net = caffe.NetSpec()
@@ -222,13 +222,13 @@ def build_prototxt():
     num_nodes = graph.shape[0]
 
     def dfs():
-	print('... Add layer: DummyData')
+        print('... Add layer: DummyData')
         input_layer_name = net_config[0]['name']
         net[input_layer_name] = input_layer(net_config[0])    
         for w in range(1, num_nodes):
-	    print(net_config[w])
+            print(net_config[w])
             bottom_layer_name = net_config[w]["prev"]
-       	    layer_config = net_config[w]
+            layer_config = net_config[w]
             layer_name = str(layer_config['name'])
             layer_type = layer_config['type']
 
@@ -239,7 +239,7 @@ def build_prototxt():
 
             layer = get_layer(layer_config, bottom_layer_name)
             net[layer_name] = layer
-	    print(layer_name)
+            print(layer_name)
     # DFS.
     dfs()
 
