@@ -473,6 +473,7 @@ layerfn = {
     ['nn.Tanh'] = tanh_layer,
     ['nn.SpatialSoftMax'] = spatialsoftmax_layer,
     ['nn.SpatialFullConvolution'] = deconv_layer,
+    ['cudnn.SpatialFullConvolution'] = deconv_layer,
     ['nn.CAddTable'] = cadd_layer,
     ['nn.JoinTable'] = join_layer,
     ['nn.SpatialUpSamplingNearest'] = upsample1_layer,
