@@ -138,7 +138,7 @@ def relu_layer(layer_config, bottom_name):
     return L.ReLU(name = layer_config['name'],
                   bottom=bottom_name,
                   top=bottom_name,
-                  in_place=True)
+                  in_place=layer_config['name'])
 
 #Create elu layer.
 def elu_layer(layer_config, bottom_name):
@@ -147,14 +147,14 @@ def elu_layer(layer_config, bottom_name):
                  bottom=bottom_name,
                  top=bottom_name,
                  alpha= layer_config['alpha'],
-                 in_place=True)
+                 in_place=layer_config['name'])
 
 def tanh_layer(layer_config, bottom_name):
     '''For ELU layer, top=bottom(caffe feature)'''
     return L.TanH(name = layer_config['name'],
                  bottom=bottom_name,
                  top=bottom_name,
-                 in_place=True)
+                 in_place=layer_config['name'])
 
 
 def prelu_layer(layer_config, bottom_name):
@@ -162,7 +162,7 @@ def prelu_layer(layer_config, bottom_name):
     return L.ReLU(name = layer_config['name'],
                   bottom=bottom_name,
                   top=bottom_name,
-                  in_place=True)
+                  in_place=layer_config['name'])
 
 #Create pool(max, average) layer.
 def pool_layer(layer_config, bottom_name):
