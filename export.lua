@@ -578,7 +578,9 @@ print(mod)
 
 
 -- Save config file.
-json.save(CONFIG_DIR..'net.json', net_config)
+local f = io.open(CONFIG_DIR..'net.json', 'w')
+f:write(json.encode(net_config))
+f:close()
 
 -- Graph.
 graph = torch.zeros(#net_config, #net_config)
