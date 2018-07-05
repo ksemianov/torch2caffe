@@ -220,8 +220,8 @@ function deconv_layer(layer, current, prev)
         ['kW'] = kW,
         ['dW'] = dW,
         ['pW'] = pW,
-	['adj'] = layer.adjW,
-	['prev'] = prev,
+	      ['adj'] = layer.adjW,
+	      ['prev'] = prev,
     }
 end
 
@@ -278,7 +278,7 @@ function bn_layer(layer, current, prev)
         ['id'] = #net_config,
         ['type'] = 'Scale',
         ['name'] = layer_name1,
-	['prev'] = layer_name,
+	      ['prev'] = layer_name,
     }
     end
 end
@@ -292,7 +292,7 @@ function concat_layer(layer, current, prev)
         ['id'] = #net_config,
         ['type'] = 'Concat',
         ['name'] = layer_name,
-	['prev'] = prev,
+	      ['prev'] = prev,
     }
 end
 
@@ -318,7 +318,7 @@ function relu_layer(layer, current, prev)
         ['id'] = #net_config,
         ['type'] = 'ReLU',
         ['name'] = "relu" .. current,
-	['prev'] = prev,
+	      ['prev'] = prev,
     }
 end
 
@@ -362,11 +362,11 @@ function upsample_layer(layer, current, prev)
     net_config[#net_config+1] = {
         ['id'] = #net_config,
         ['type'] = 'Upsample',
-	['name'] = current, 
+	      ['name'] = current, 
         ['nameInner'] = tostring('Up') ..current,
         ['prev'] = prev,
         ['scale'] = layer.scale_factor,
-	['num_output'] = layer.output:size()[2],
+	      ['num_output'] = layer.output:size()[2],
     }
 end
 
@@ -387,7 +387,7 @@ function upsample1_layer(layer, current, prev)
         ['id'] = #net_config,
         ['type'] = 'Scale',
         ['name'] = layer_name1,
-       ['prev'] = current .. "inner",
+        ['prev'] = current .. "inner",
     }
 
 end
@@ -469,74 +469,74 @@ mod = {}
 current = 1
 
 function concatDescr(layer,mod, current, prev)
-	    print( torch.type(layer))
-            local layer1 = layer
-            local layer_type = torch.type(layer)
-            local save = layerfn[layer_type]    
-	    local save1= save
-            local inp = current-1
-            local strr = ""
-            local _prev = current
-            for i=1,#layer.modules do
-                if torch.type(layer.modules[i]) == "nn.Identity" then
-                    strr = strr .. tostring(inp).. ","
-                else
-                    --print(layer.modules[i])
-                    current = getDescr(layer.modules[i], mod, current, inp)
-                    if _prev == current then
-                        strr = strr .. tostring(inp).. ","
-                    else
-                       strr = strr .. tostring(current-1).. ","
-                       _prev = current
-                    end
-                end
-            end
-            table.insert(mod,tostring("concat" .. tostring(current) .. " " ..strr))
-            save1(layer1, tostring(current), strr)
-            current = current + 1
+  print( torch.type(layer))
+  local layer1 = layer
+  local layer_type = torch.type(layer)
+  local save = layerfn[layer_type]    
+  local save1= save
+  local inp = current-1
+  local strr = ""
+  local _prev = current
+  for i=1,#layer.modules do
+      if torch.type(layer.modules[i]) == "nn.Identity" then
+          strr = strr .. tostring(inp).. ","
+      else
+          --print(layer.modules[i])
+          current = getDescr(layer.modules[i], mod, current, inp)
+          if _prev == current then
+              strr = strr .. tostring(inp).. ","
+          else
+             strr = strr .. tostring(current-1).. ","
+             _prev = current
+          end
+      end
+  end
+  table.insert(mod,tostring("concat" .. tostring(current) .. " " ..strr))
+  save1(layer1, tostring(current), strr)
+  current = current + 1
 	return mod, current, prev
 end
 
 
 function getDescr(model, mod, current, prev)
-    isUsed = 1
-    if torch.type(model) == "nn.Concat" or torch.type(model) == "nn.ConcatTable" then
-	mod, current, prev = concatDescr(model,mod, current, prev)
-    else
+  isUsed = 1
+  if torch.type(model) == "nn.Concat" or torch.type(model) == "nn.ConcatTable" then
+    mod, current, prev = concatDescr(model,mod, current, prev)
+  else
     for i=1,#model do
-        local layer = model:get(i)
-        layer_type = torch.type(layer)
-        save = layerfn[layer_type]
-        if (layer_type == "nn.Concat" or layer_type == "nn.ConcatTable") then
-            mod, current, prev = concatDescr(layer, mod, current, prev)
-         elseif (layer_type == "nn.Sequential" ) then
-              --print(current)
-              current = getDescr(layer, mod, current, current-1)
-         elseif (layer_type == "nn.CAddTable" or layer_type == "nn.Identity") then
-            --pass layer, already make it in concatTable
-            i = i
-         elseif (layer_type == "nn.ReLU" or layer_type == "nn.ELU") then
-            save(layer, tostring(current-1), tostring(current-1))
-            table.insert(mod,tostring(tostring(current-1) .. " " ..  tostring(current -1)))
-         else
-            if isUsed==0 then
-                save(layer, tostring(current), tostring(current-1))
-                table.insert(mod,tostring(tostring(current) .. " " ..  tostring(current -1)))
-                current = current + 1
-            else
-                save(layer, tostring(current), tostring(prev))
-                table.insert(mod,tostring(tostring(current) .. " " ..  tostring(prev)))
-                isUsed = 0
-                current = current + 1
-	    end
-	    if (layer_type == "nn.SpatialBatchNormalization") then
-	        table.insert(mod,tostring("batch" .. tostring(current) .."and".. tostring(current-1) .. " " ..  tostring(current -2)))
-            	current = current + 1
-	    end
+      local layer = model:get(i)
+      layer_type = torch.type(layer)
+      save = layerfn[layer_type]
+      if (layer_type == "nn.Concat" or layer_type == "nn.ConcatTable") then
+        mod, current, prev = concatDescr(layer, mod, current, prev)
+      elseif (layer_type == "nn.Sequential" ) then
+        --print(current)
+        current = getDescr(layer, mod, current, current-1)
+      elseif (layer_type == "nn.CAddTable" or layer_type == "nn.Identity") then
+        --pass layer, already make it in concatTable
+        i = i
+      elseif (layer_type == "nn.ReLU" or layer_type == "nn.ELU") then
+        save(layer, tostring(current-1), tostring(current-1))
+        table.insert(mod,tostring(tostring(current-1) .. " " ..  tostring(current -1)))
+      else
+        if isUsed==0 then
+            save(layer, tostring(current), tostring(current-1))
+            table.insert(mod,tostring(tostring(current) .. " " ..  tostring(current -1)))
+            current = current + 1
+        else
+            save(layer, tostring(current), tostring(prev))
+            table.insert(mod,tostring(tostring(current) .. " " ..  tostring(prev)))
+            isUsed = 0
+            current = current + 1
         end
+        if (layer_type == "nn.SpatialBatchNormalization") then
+            table.insert(mod,tostring("batch" .. tostring(current) .."and".. tostring(current-1) .. " " ..  tostring(current -2)))
+              	current = current + 1
+        end
+      end
     end
-    end
-    return current
+  end
+  return current
 end
 
 getDescr(net, mod, current, 0)
