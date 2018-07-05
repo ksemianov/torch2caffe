@@ -519,7 +519,7 @@ function getDescr(model, mod, current, prev)
       elseif (layer_type == "nn.CAddTable" or layer_type == "nn.Identity") then
         --pass layer, already make it in concatTable
         i = i
-      elseif (layer_type == "nn.ReLU" or layer_type == "nn.ELU") then
+      elseif (layer_type == "nn.ReLU" or layer_type == "nn.ELU" or layer_type == "nn.PReLU") and layer.inplace then
         save(layer, tostring(current-1), tostring(current-1))
         table.insert(mod,tostring(tostring(current-1) .. " " ..  tostring(current -1)))
       else
