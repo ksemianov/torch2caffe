@@ -131,6 +131,14 @@ def cadd_layer(layer_config, bottom_name):
                      ntop = 0, top = layer_config['name'],
                      bottom=bottom)
 
+#Create Concat layer.
+def join_layer(layer_config, bottom_name):
+    '''For ReLU layer, top=bottom'''
+    bottom = bottom_name.split(',') 
+    bottom.pop()
+    return L.Concat(name = layer_config['name'],
+                     ntop = 0, top = layer_config['name'],
+                     bottom=bottom)
 
 #Create relu layer.
 def relu_layer(layer_config, bottom_name):

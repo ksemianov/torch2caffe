@@ -309,6 +309,19 @@ function cadd_layer(layer, current, prev)
     }
 end
 
+---------------------------------------------------------------
+-- Save tableconcat + JoinTable layer. We use only one layer in caffe elmwise instead 2 in torch
+--
+function join_layer(layer, current, prev)
+    local layer_name = current
+    net_config[#net_config+1] = {
+        ['id'] = #net_config,
+        ['type'] = 'Join',
+        ['name'] = layer_name,
+        ['prev'] = prev,
+    }
+end
+
 
 ---------------------------------------------------------------
 -- Save relu layer.
@@ -460,7 +473,8 @@ layerfn = {
     ['nn.Tanh'] = tanh_layer,
     ['nn.SpatialSoftMax'] = spatialsoftmax_layer,
     ['nn.SpatialFullConvolution'] = deconv_layer,
-    ['nn.ConcatTable'] = cadd_layer,
+    ['nn.CAddTable'] = cadd_layer,
+    ['nn.JoinTable'] = join_layer,
     ['nn.SpatialUpSamplingNearest'] = upsample1_layer,
     ['nn.SpatialUpSamplingBilinear'] = upsample_layer,
 }
@@ -472,12 +486,11 @@ layerfn = {
 mod = {}
 current = 1
 
-function concatDescr(layer,mod, current, prev)
-  print( torch.type(layer))
+function concatDescr(layer,mod, current, prev, nxt)
   local layer1 = layer
-  local layer_type = torch.type(layer)
-  local save = layerfn[layer_type]    
-  local save1= save
+  local layer_type = torch.type(nxt)
+  print(layer_type)
+  local save = layerfn[layer_type]
   local inp = current-1
   local strr = ""
   local _prev = current
@@ -496,7 +509,7 @@ function concatDescr(layer,mod, current, prev)
       end
   end
   table.insert(mod,tostring("concat" .. tostring(current) .. " " ..strr))
-  save1(layer1, tostring(current), strr)
+  save(layer1, tostring(current), strr)
   current = current + 1
 	return mod, current, prev
 end
@@ -504,19 +517,18 @@ end
 
 function getDescr(model, mod, current, prev)
   isUsed = 1
-  if torch.type(model) == "nn.Concat" or torch.type(model) == "nn.ConcatTable" then
-    mod, current, prev = concatDescr(model,mod, current, prev)
-  else
+  if torch.type(model) == "nn.Sequential" then
     for i=1,#model do
       local layer = model:get(i)
       layer_type = torch.type(layer)
       save = layerfn[layer_type]
       if (layer_type == "nn.Concat" or layer_type == "nn.ConcatTable") then
-        mod, current, prev = concatDescr(layer, mod, current, prev)
+        nxt = model:get(i + 1)
+        mod, current, prev = concatDescr(layer, mod, current, prev, nxt)
       elseif (layer_type == "nn.Sequential" ) then
         --print(current)
         current = getDescr(layer, mod, current, current-1)
-      elseif (layer_type == "nn.CAddTable" or layer_type == "nn.Identity") then
+      elseif (layer_type == "nn.CAddTable" or layer_type == "nn.JoinTable" or layer_type == "nn.Identity") then
         --pass layer, already make it in concatTable
         i = i
       elseif (layer_type == "nn.ReLU" or layer_type == "nn.ELU" or layer_type == "nn.PReLU") and layer.inplace then
@@ -533,11 +545,21 @@ function getDescr(model, mod, current, prev)
             isUsed = 0
             current = current + 1
         end
-        if (layer_type == "nn.SpatialBatchNormalization") then
-            table.insert(mod,tostring("batch" .. tostring(current) .."and".. tostring(current-1) .. " " ..  tostring(current -2)))
-              	current = current + 1
-        end
       end
+    end
+  else
+    local layer = model
+    layer_type = torch.type(layer)
+    save = layerfn[layer_type]
+    if isUsed==0 then
+        save(layer, tostring(current), tostring(current-1))
+        table.insert(mod,tostring(tostring(current) .. " " ..  tostring(current -1)))
+        current = current + 1
+    else
+        save(layer, tostring(current), tostring(prev))
+        table.insert(mod,tostring(tostring(current) .. " " ..  tostring(prev)))
+        isUsed = 0
+        current = current + 1
     end
   end
   return current
