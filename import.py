@@ -20,7 +20,7 @@ CONFIG_DIR = './config/'
 #Create input layer in caffe
 def input_layer(layer_config):
     input_shape = layer_config['input_shape']
-    return L.DummyData(shape=[dict(dim=input_shape)], ntop=1)
+    return L.Input(shape=[dict(dim=input_shape)], ntop=1)
 
 
 #Create conv layer.
@@ -235,7 +235,7 @@ def build_prototxt():
     num_nodes = graph.shape[0]
 
     def dfs():
-        print('... Add layer: DummyData')
+        print('... Add layer: Input')
         input_layer_name = net_config[0]['name']
         net[input_layer_name] = input_layer(net_config[0])    
         for w in range(1, num_nodes):
