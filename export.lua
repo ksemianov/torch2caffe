@@ -334,6 +334,9 @@ function relu_layer(layer, current, prev)
 	      ['prev'] = prev,
         ['inplace'] = layer.inplace,
     }
+    if not layer.inplace then
+      net_config[#net_config]['name'] = current
+    end
 end
 
 function prelu_layer(layer, current, prev)
@@ -346,6 +349,9 @@ function prelu_layer(layer, current, prev)
         ['prev'] = prev,
         ['inplace'] = layer.inplace,
     }
+    if not layer.inplace then
+      net_config[#net_config]['name'] = current
+    end
 end
 
 function tanh_layer(layer, current, prev)
@@ -357,6 +363,9 @@ function tanh_layer(layer, current, prev)
         ['prev'] = prev,
         ['inplace'] = layer.inplace,
     }
+    if not layer.inplace then
+      net_config[#net_config]['name'] = current
+    end
 end
 
 ---------------------------------------------------------------
@@ -371,6 +380,9 @@ function elu_layer(layer, current, prev)
         ['alpha'] = layer.alpha,
         ['inplace'] = layer.inplace,
     }
+    if not layer.inplace then
+      net_config[#net_config]['name'] = current
+    end
 end
 
 
