@@ -502,6 +502,9 @@ current = 1
 function concatDescr(layer,mod, current, prev, nxt)
   local layer1 = layer
   local layer_type = torch.type(nxt)
+  if torch.type(layer) == "nn.Concat" then
+    layer_type = torch.type(layer)
+  end
   print(layer_type)
   local save = layerfn[layer_type]
   local inp = current-1
@@ -541,7 +544,7 @@ function getDescr(model, mod, current, prev)
       elseif (layer_type == "nn.Sequential" ) then
         --print(current)
         current = getDescr(layer, mod, current, current-1)
-      elseif (layer_type == "nn.CAddTable" or layer_type == "nn.JoinTable" or layer_type == "nn.Identity") then
+      elseif (layer_type == "nn.CAddTable" or layer_type == "nn.JoinTable" or layer_type == "nn.Identity" or layer_type == "nn.Concat") then
         --pass layer, already make it in concatTable
         i = i
       elseif (layer_type == "nn.ReLU" or layer_type == "nn.ELU" or layer_type == "nn.PReLU") and layer.inplace then
